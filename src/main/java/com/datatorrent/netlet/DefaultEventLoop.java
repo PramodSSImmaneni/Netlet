@@ -37,6 +37,7 @@ import com.datatorrent.netlet.util.CircularBuffer;
 public class DefaultEventLoop implements Runnable, EventLoop
 {
   public final String id;
+  protected ConnectionType connectionType;
   private boolean alive;
   private int refCount;
   private final Selector selector;
@@ -45,7 +46,13 @@ public class DefaultEventLoop implements Runnable, EventLoop
 
   public DefaultEventLoop(String id) throws IOException
   {
+    this(id, ConnectionType.TCP);
+  }
+
+  public DefaultEventLoop(String id, ConnectionType connectionType) throws IOException
+  {
     this.id = id;
+    this.connectionType = connectionType;
     selector = Selector.open();
   }
 
@@ -145,6 +152,11 @@ public class DefaultEventLoop implements Runnable, EventLoop
                   break;
 
                 case SelectionKey.OP_READ:
+                  if (connectionType == ConnectionType.UDP) {
+                    if (sk.attachment() == null) {
+
+                    }
+                  }
                   ((ClientListener)sk.attachment()).read();
                   break;
 
@@ -312,11 +324,22 @@ public class DefaultEventLoop implements Runnable, EventLoop
       @Override
       public void run()
       {
-        SocketChannel channel = null;
+        SelectableChannel channel = null;
         try {
-          channel = SocketChannel.open();
+          if (connectionType == ConnectionType.TCP) {
+            channel = SocketChannel.open();
+          } else {
+            channel = DatagramChannel.open();
+          }
           channel.configureBlocking(false);
-          if (channel.connect(address)) {
+          boolean connection;
+          if (connectionType == ConnectionType.TCP) {
+            connection = ((SocketChannel)channel).connect(address);
+          } else {
+            ((DatagramChannel)channel).connect(address);
+            connection = true;
+          }
+          if (connection) {
             if (l instanceof ClientListener) {
               ((ClientListener)l).connected();
               register(channel, SelectionKey.OP_READ, l);
