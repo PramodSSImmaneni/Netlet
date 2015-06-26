@@ -92,17 +92,34 @@ public class AbstractClientTest
   }
 
   @Test
-  @SuppressWarnings("SleepWhileInLoop")
   public void verifySendReceive() throws IOException, InterruptedException
   {
-    ServerImpl si = new ServerImpl();
+    //verifySendReceive(ConnectionType.TCP);
+    verifySendReceive(ConnectionType.UDP);
+  }
+
+  @SuppressWarnings("SleepWhileInLoop")
+  private void verifySendReceive(ConnectionType connectionType) throws IOException, InterruptedException
+  {
+    ServerImpl si = null;
+    ClientImpl usi = null;
+    if (connectionType == ConnectionType.TCP) {
+      si = new ServerImpl();
+    } else {
+      usi = new ClientImpl();
+    }
     ClientImpl ci = new ClientImpl();
 
     DefaultEventLoop el = new DefaultEventLoop("test");
     new Thread(el).start();
 
-    el.start("localhost", 5033, si);
-    el.connect(new InetSocketAddress("localhost", 5033), ci);
+    if (connectionType == ConnectionType.TCP) {
+      el.start("localhost", 5033, si);
+    } else {
+      el.startUDP("localhost", 5033, usi);
+    }
+
+    el.connect(new InetSocketAddress("localhost", 5033), ci, connectionType);
 
     ByteBuffer outboundBuffer = ByteBuffer.allocate(ClientImpl.BUFFER_CAPACITY);
     LongBuffer lb = outboundBuffer.asLongBuffer();
@@ -127,7 +144,11 @@ public class AbstractClientTest
     sleep(100);
 
     el.disconnect(ci);
-    el.stop(si);
+    if (connectionType == ConnectionType.TCP) {
+      el.stop(si);
+    } else {
+      el.stopUDP(usi);
+    }
     el.stop();
     assert (ci.read);
   }

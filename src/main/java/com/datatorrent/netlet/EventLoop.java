@@ -29,6 +29,8 @@ public interface EventLoop
 {
   void connect(final InetSocketAddress address, final Listener l);
 
+  void connect(final InetSocketAddress address, final Listener l, ConnectionType connectionType);
+
   void disconnect(final ClientListener l);
 
   //void register(ServerSocketChannel channel, Listener l);
@@ -37,7 +39,11 @@ public interface EventLoop
 
   void start(final String host, final int port, final ServerListener l);
 
+  void startUDP(final String host, final int port, final Listener l);
+
   void stop(final ServerListener l);
+
+  void stopUDP(Listener l);
 
   void submit(Runnable r);
 

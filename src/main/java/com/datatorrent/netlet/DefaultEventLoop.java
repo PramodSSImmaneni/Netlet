@@ -37,7 +37,6 @@ import com.datatorrent.netlet.util.CircularBuffer;
 public class DefaultEventLoop implements Runnable, EventLoop
 {
   public final String id;
-  protected ConnectionType connectionType;
   private boolean alive;
   private int refCount;
   private final Selector selector;
@@ -46,13 +45,7 @@ public class DefaultEventLoop implements Runnable, EventLoop
 
   public DefaultEventLoop(String id) throws IOException
   {
-    this(id, ConnectionType.TCP);
-  }
-
-  public DefaultEventLoop(String id, ConnectionType connectionType) throws IOException
-  {
     this.id = id;
-    this.connectionType = connectionType;
     selector = Selector.open();
   }
 
@@ -145,18 +138,17 @@ public class DefaultEventLoop implements Runnable, EventLoop
                   break;
 
                 case SelectionKey.OP_CONNECT:
-                  if (((SocketChannel)sk.channel()).finishConnect()) {
-                    ((ClientListener)sk.attachment()).connected();
+                  System.out.println("Recieved connect");
+                  boolean isSocketChannel = (sk.channel() instanceof SocketChannel);
+                  if ((isSocketChannel && ((SocketChannel) sk.channel()).finishConnect())
+                            || !isSocketChannel) {
+                    ((ClientListener) sk.attachment()).connected();
                     sk.interestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
                   }
                   break;
 
                 case SelectionKey.OP_READ:
-                  if (connectionType == ConnectionType.UDP) {
-                    if (sk.attachment() == null) {
-
-                    }
-                  }
+                  System.out.println("Read called");
                   ((ClientListener)sk.attachment()).read();
                   break;
 
@@ -288,7 +280,7 @@ public class DefaultEventLoop implements Runnable, EventLoop
       {
         for (SelectionKey key : selector.keys()) {
           if (key.channel() == c) {
-            ((Listener)key.attachment()).unregistered(key);
+            ((Listener) key.attachment()).unregistered(key);
             key.interestOps(0);
             key.attach(Listener.NOOP_LISTENER);
           }
@@ -313,11 +305,17 @@ public class DefaultEventLoop implements Runnable, EventLoop
   //@Override
   public void register(SocketChannel channel, int ops, Listener l)
   {
-    register((AbstractSelectableChannel)channel, ops, l);
+    register((AbstractSelectableChannel) channel, ops, l);
   }
 
   @Override
   public final void connect(final InetSocketAddress address, final Listener l)
+  {
+    connect(address, l, ConnectionType.TCP);
+  }
+
+  @Override
+  public final void connect(final InetSocketAddress address, final Listener l, final ConnectionType connectionType)
   {
     submit(new Runnable()
     {
@@ -332,30 +330,33 @@ public class DefaultEventLoop implements Runnable, EventLoop
             channel = DatagramChannel.open();
           }
           channel.configureBlocking(false);
-          boolean connection;
+          boolean connection = false;
           if (connectionType == ConnectionType.TCP) {
-            connection = ((SocketChannel)channel).connect(address);
+            connection = ((SocketChannel) channel).connect(address);
           } else {
-            ((DatagramChannel)channel).connect(address);
+            ((DatagramChannel) channel).connect(address);
+            //l.registered(channel.register(selector, SelectionKey.OP_CONNECT, l));
+            l.registered(channel.register(selector, SelectionKey.OP_READ|SelectionKey.OP_WRITE, l));
+            //register(channel, SelectionKey.OP_CONNECT, l);
             connection = true;
           }
+          /*
           if (connection) {
             if (l instanceof ClientListener) {
-              ((ClientListener)l).connected();
+              ((ClientListener) l).connected();
+              System.out.println("Sel key");
               register(channel, SelectionKey.OP_READ, l);
             }
-          }
-          else {
+          } else {
             register(channel, SelectionKey.OP_CONNECT, l);
           }
-        }
-        catch (IOException ie) {
+          */
+        } catch (IOException ie) {
           l.handleException(ie, DefaultEventLoop.this);
           if (channel != null && channel.isOpen()) {
             try {
               channel.close();
-            }
-            catch (IOException io) {
+            } catch (IOException io) {
               l.handleException(io, DefaultEventLoop.this);
             }
           }
@@ -383,8 +384,7 @@ public class DefaultEventLoop implements Runnable, EventLoop
           if (key.attachment() == l) {
             try {
               l.unregistered(key);
-            }
-            finally {
+            } finally {
               if (key.isValid()) {
                 if ((key.interestOps() & SelectionKey.OP_WRITE) != 0) {
                   key.attach(new Listener.DisconnectingListener(key));
@@ -395,8 +395,7 @@ public class DefaultEventLoop implements Runnable, EventLoop
               try {
                 key.attach(Listener.NOOP_CLIENT_LISTENER);
                 key.channel().close();
-              }
-              catch (IOException io) {
+              } catch (IOException io) {
                 l.handleException(io, DefaultEventLoop.this);
               }
             }
@@ -416,25 +415,41 @@ public class DefaultEventLoop implements Runnable, EventLoop
   @Override
   public final void start(final String host, final int port, final ServerListener l)
   {
+    start(host, port, l, ConnectionType.TCP);
+  }
+
+  @Override
+  public final void startUDP(final String host, final int port, final Listener l)
+  {
+    start(host, port, l, ConnectionType.UDP);
+  }
+
+  private final void start(final String host, final int port, final Listener l, final ConnectionType connectionType)
+  {
     submit(new Runnable()
     {
       @Override
       public void run()
       {
-        ServerSocketChannel channel = null;
+        SelectableChannel channel = null;
         try {
-          channel = ServerSocketChannel.open();
-          channel.configureBlocking(false);
-          channel.socket().bind(host == null ? new InetSocketAddress(port) : new InetSocketAddress(host, port), 128);
-          register(channel, SelectionKey.OP_ACCEPT, l);
-        }
-        catch (IOException io) {
+          if (connectionType == ConnectionType.TCP) {
+            channel = ServerSocketChannel.open();
+            channel.configureBlocking(false);
+            ((ServerSocketChannel) channel).socket().bind(host == null ? new InetSocketAddress(port) : new InetSocketAddress(host, port), 128);
+            register(channel, SelectionKey.OP_ACCEPT, l);
+          } else {
+            channel = DatagramChannel.open();
+            channel.configureBlocking(false);
+            ((DatagramChannel) channel).socket().bind(host == null ? new InetSocketAddress(port) : new InetSocketAddress(host, port));
+            register(channel, SelectionKey.OP_READ | SelectionKey.OP_WRITE, l);
+          }
+        } catch (IOException io) {
           l.handleException(io, DefaultEventLoop.this);
           if (channel != null && channel.isOpen()) {
             try {
               channel.close();
-            }
-            catch (IOException ie) {
+            } catch (IOException ie) {
               l.handleException(ie, DefaultEventLoop.this);
             }
           }
@@ -452,6 +467,17 @@ public class DefaultEventLoop implements Runnable, EventLoop
 
   @Override
   public final void stop(final ServerListener l)
+  {
+    stop(l, ConnectionType.TCP);
+  }
+
+  @Override
+  public final void stopUDP(final Listener l)
+  {
+    stop(l, ConnectionType.UDP);
+  }
+
+  private void stop(final Listener l, ConnectionType connectionType)
   {
     submit(new Runnable()
     {
