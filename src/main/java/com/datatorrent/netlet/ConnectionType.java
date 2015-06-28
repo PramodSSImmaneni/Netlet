@@ -1,7 +1,8 @@
 package com.datatorrent.netlet;
 
 /**
- * Created by pramod on 6/9/15.
+ * @author Pramod Immaneni <pramod@datatorrent.com>
+ * Created on 6/9/15.
  */
 public enum ConnectionType
 {
