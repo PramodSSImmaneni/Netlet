@@ -7,8 +7,7 @@ import java.nio.channels.*;
 import java.nio.channels.spi.SelectorProvider;
 
 /**
- * @author Pramod Immaneni <pramod@datatorrent.com>
- * Created on 6/27/15.
+ *
  */
 public class DatagramConnectionChannel extends SelectableChannel implements ReadableByteChannel, WritableByteChannel
 {

@@ -18,8 +18,6 @@ import com.datatorrent.netlet.Listener;
  * Furthermore reading from the channel returns all packets from all peers.
  * The server listener provides the ability to have separate virtual connections for packets from separate peers.
  *
- * @author Pramod Immaneni <pramod@datatorrent.com>
- * Created on 6/27/15.
  */
 public class DatagramListener implements Listener.ClientListener, DatagramConnectionChannel.ConnectionAdapter
 {

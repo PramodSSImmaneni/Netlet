@@ -6,8 +6,7 @@ import java.nio.channels.Selector;
 import java.nio.channels.spi.AbstractSelectionKey;
 
 /**
- * @author Pramod Immaneni <pramod@datatorrent.com>
- * Created on 6/9/15.
+ *
  */
 public class DatagramSelectionKey extends AbstractSelectionKey
 {
