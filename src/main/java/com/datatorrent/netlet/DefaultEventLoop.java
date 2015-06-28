@@ -139,8 +139,8 @@ public class DefaultEventLoop implements Runnable, EventLoop
                   break;
 
                 case SelectionKey.OP_CONNECT:
-                  if (((SocketChannel) sk.channel()).finishConnect()) {
-                    ((ClientListener) sk.attachment()).connected();
+                  if (((SocketChannel)sk.channel()).finishConnect()) {
+                    ((ClientListener)sk.attachment()).connected();
                     sk.interestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
                   }
                   break;
@@ -277,7 +277,7 @@ public class DefaultEventLoop implements Runnable, EventLoop
       {
         for (SelectionKey key : selector.keys()) {
           if (key.channel() == c) {
-            ((Listener) key.attachment()).unregistered(key);
+            ((Listener)key.attachment()).unregistered(key);
             key.interestOps(0);
             key.attach(Listener.NOOP_LISTENER);
           }
@@ -302,7 +302,7 @@ public class DefaultEventLoop implements Runnable, EventLoop
   //@Override
   public void register(SocketChannel channel, int ops, Listener l)
   {
-    register((AbstractSelectableChannel) channel, ops, l);
+    register((AbstractSelectableChannel)channel, ops, l);
   }
 
   @Override
@@ -340,12 +340,14 @@ public class DefaultEventLoop implements Runnable, EventLoop
             ((DatagramChannel) channel).connect(address);
             register(channel, SelectionKey.OP_READ | SelectionKey.OP_WRITE, l);
           }
-        } catch (IOException ie) {
+        }
+        catch (IOException ie) {
           l.handleException(ie, DefaultEventLoop.this);
           if (channel != null && channel.isOpen()) {
             try {
               channel.close();
-            } catch (IOException io) {
+            }
+            catch (IOException io) {
               l.handleException(io, DefaultEventLoop.this);
             }
           }
@@ -373,7 +375,8 @@ public class DefaultEventLoop implements Runnable, EventLoop
           if (key.attachment() == l) {
             try {
               l.unregistered(key);
-            } finally {
+            }
+            finally {
               if (key.isValid()) {
                 if ((key.interestOps() & SelectionKey.OP_WRITE) != 0) {
                   key.attach(new Listener.DisconnectingListener(key));
@@ -384,7 +387,8 @@ public class DefaultEventLoop implements Runnable, EventLoop
               try {
                 key.attach(Listener.NOOP_CLIENT_LISTENER);
                 key.channel().close();
-              } catch (IOException io) {
+              }
+              catch (IOException io) {
                 l.handleException(io, DefaultEventLoop.this);
               }
             }
@@ -434,12 +438,14 @@ public class DefaultEventLoop implements Runnable, EventLoop
             DatagramListener listener = new DatagramListener((Listener.UDPServerListener)l);
             register(channel, SelectionKey.OP_READ | SelectionKey.OP_WRITE, listener);
           }
-        } catch (IOException io) {
+        }
+        catch (IOException io) {
           l.handleException(io, DefaultEventLoop.this);
           if (channel != null && channel.isOpen()) {
             try {
               channel.close();
-            } catch (IOException ie) {
+            }
+            catch (IOException ie) {
               l.handleException(ie, DefaultEventLoop.this);
             }
           }
