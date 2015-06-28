@@ -43,8 +43,17 @@ public class AbstractClientTest
   public class ClientImpl extends AbstractClient
   {
     public static final int BUFFER_CAPACITY = 8 * 1024 + 1;
-    ByteBuffer buffer = ByteBuffer.allocate(BUFFER_CAPACITY);
+    public static final int UDP_BUFFER_CAPACITY = 8 * 256 + 1;
+
+    int bufferCapacity;
+
+    ByteBuffer buffer;
     boolean read;
+
+    public ClientImpl(int bufferCapacity) {
+      this.bufferCapacity = bufferCapacity;
+      buffer = ByteBuffer.allocate(bufferCapacity);
+    }
 
     @Override
     public String toString()
@@ -71,7 +80,7 @@ public class AbstractClientTest
           Assert.assertEquals(i++, lb.get());
         }
 
-        assert (i == BUFFER_CAPACITY / 8);
+        assert (i == bufferCapacity / 8);
       }
     }
 
@@ -94,7 +103,7 @@ public class AbstractClientTest
   @Test
   public void verifySendReceive() throws IOException, InterruptedException
   {
-    //verifySendReceive(ConnectionType.TCP);
+    verifySendReceive(ConnectionType.TCP);
     verifySendReceive(ConnectionType.UDP);
   }
 
@@ -102,13 +111,16 @@ public class AbstractClientTest
   private void verifySendReceive(ConnectionType connectionType) throws IOException, InterruptedException
   {
     ServerImpl si = null;
-    ClientImpl usi = null;
+    ServerTest.UDPServerImpl usi = null;
+    int bufferCapacity;
     if (connectionType == ConnectionType.TCP) {
       si = new ServerImpl();
+      bufferCapacity = ClientImpl.BUFFER_CAPACITY;
     } else {
-      usi = new ClientImpl();
+      usi = new ServerTest.UDPServerImpl();
+      bufferCapacity = ClientImpl.UDP_BUFFER_CAPACITY;
     }
-    ClientImpl ci = new ClientImpl();
+    ClientImpl ci = new ClientImpl(bufferCapacity);
 
     DefaultEventLoop el = new DefaultEventLoop("test");
     new Thread(el).start();
@@ -121,7 +133,7 @@ public class AbstractClientTest
 
     el.connect(new InetSocketAddress("localhost", 5033), ci, connectionType);
 
-    ByteBuffer outboundBuffer = ByteBuffer.allocate(ClientImpl.BUFFER_CAPACITY);
+    ByteBuffer outboundBuffer = ByteBuffer.allocate(bufferCapacity);
     LongBuffer lb = outboundBuffer.asLongBuffer();
 
     int i = 0;

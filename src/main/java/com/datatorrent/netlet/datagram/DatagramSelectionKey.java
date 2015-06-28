@@ -6,14 +6,22 @@ import java.nio.channels.Selector;
 import java.nio.channels.spi.AbstractSelectionKey;
 
 /**
- * Created by pramod on 6/9/15.
+ * @author Pramod Immaneni <pramod@datatorrent.com>
+ * Created on 6/9/15.
  */
-public class SelectionKeyChannel extends AbstractSelectionKey
+public class DatagramSelectionKey extends AbstractSelectionKey
 {
+
+  private SelectableChannel channel;
+
+  public DatagramSelectionKey(SelectableChannel channel) {
+    this.channel = channel;
+  }
+
   @Override
   public SelectableChannel channel()
   {
-    return null;
+    return channel;
   }
 
   @Override

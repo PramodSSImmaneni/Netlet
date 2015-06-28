@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
 
 import com.datatorrent.netlet.Listener.ClientListener;
 import com.datatorrent.netlet.Listener.ServerListener;
+import com.datatorrent.netlet.datagram.DatagramListener;
 import com.datatorrent.netlet.util.CircularBuffer;
 
 /**
@@ -138,17 +139,13 @@ public class DefaultEventLoop implements Runnable, EventLoop
                   break;
 
                 case SelectionKey.OP_CONNECT:
-                  System.out.println("Recieved connect");
-                  boolean isSocketChannel = (sk.channel() instanceof SocketChannel);
-                  if ((isSocketChannel && ((SocketChannel) sk.channel()).finishConnect())
-                            || !isSocketChannel) {
+                  if (((SocketChannel) sk.channel()).finishConnect()) {
                     ((ClientListener) sk.attachment()).connected();
                     sk.interestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
                   }
                   break;
 
                 case SelectionKey.OP_READ:
-                  System.out.println("Read called");
                   ((ClientListener)sk.attachment()).read();
                   break;
 
@@ -330,27 +327,19 @@ public class DefaultEventLoop implements Runnable, EventLoop
             channel = DatagramChannel.open();
           }
           channel.configureBlocking(false);
-          boolean connection = false;
           if (connectionType == ConnectionType.TCP) {
-            connection = ((SocketChannel) channel).connect(address);
-          } else {
-            ((DatagramChannel) channel).connect(address);
-            //l.registered(channel.register(selector, SelectionKey.OP_CONNECT, l));
-            l.registered(channel.register(selector, SelectionKey.OP_READ|SelectionKey.OP_WRITE, l));
-            //register(channel, SelectionKey.OP_CONNECT, l);
-            connection = true;
-          }
-          /*
-          if (connection) {
-            if (l instanceof ClientListener) {
-              ((ClientListener) l).connected();
-              System.out.println("Sel key");
-              register(channel, SelectionKey.OP_READ, l);
+            if (((SocketChannel) channel).connect(address)) {
+              if (l instanceof ClientListener) {
+                ((ClientListener) l).connected();
+                register(channel, SelectionKey.OP_READ, l);
+              }
+            } else {
+              register(channel, SelectionKey.OP_CONNECT, l);
             }
           } else {
-            register(channel, SelectionKey.OP_CONNECT, l);
+            ((DatagramChannel) channel).connect(address);
+            register(channel, SelectionKey.OP_READ | SelectionKey.OP_WRITE, l);
           }
-          */
         } catch (IOException ie) {
           l.handleException(ie, DefaultEventLoop.this);
           if (channel != null && channel.isOpen()) {
@@ -419,7 +408,7 @@ public class DefaultEventLoop implements Runnable, EventLoop
   }
 
   @Override
-  public final void startUDP(final String host, final int port, final Listener l)
+  public final void startUDP(final String host, final int port, final Listener.UDPServerListener l)
   {
     start(host, port, l, ConnectionType.UDP);
   }
@@ -442,7 +431,8 @@ public class DefaultEventLoop implements Runnable, EventLoop
             channel = DatagramChannel.open();
             channel.configureBlocking(false);
             ((DatagramChannel) channel).socket().bind(host == null ? new InetSocketAddress(port) : new InetSocketAddress(host, port));
-            register(channel, SelectionKey.OP_READ | SelectionKey.OP_WRITE, l);
+            DatagramListener listener = new DatagramListener((Listener.UDPServerListener)l);
+            register(channel, SelectionKey.OP_READ | SelectionKey.OP_WRITE, listener);
           }
         } catch (IOException io) {
           l.handleException(io, DefaultEventLoop.this);
