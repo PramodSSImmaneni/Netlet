@@ -19,10 +19,11 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
-import static java.lang.Thread.sleep;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static java.lang.Thread.sleep;
 
 /**
  * Provides a premium implementation of circular buffer<p>
@@ -59,7 +60,8 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
     buffer = (T[])new Object[i];
     buffermask = i - 1;
 
-    spinMillis = spin;
+    //spinMillis = spin;
+    spinMillis = 10;
   }
 
   private CircularBuffer(T[] buffer, int buffermask, int spinMillis)
@@ -179,7 +181,8 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
         return;
       }
 
-      Thread.sleep(spinMillis);
+      //Thread.sleep(spinMillis);
+      TimeUnit.MICROSECONDS.sleep(10);
     }
     while (true);
   }
@@ -188,7 +191,7 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
   @SuppressWarnings("SleepWhileInLoop")
   public boolean offer(T e, long timeout, TimeUnit unit) throws InterruptedException
   {
-    long millis = unit.toMillis(timeout);
+    long millis = unit.toMillis(timeout) * 1000;
     do {
       if (head - tail < buffermask) {
         buffer[(int)(head & buffermask)] = e;
@@ -196,7 +199,8 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
         return true;
       }
 
-      Thread.sleep(spinMillis);
+      //Thread.sleep(spinMillis);
+      TimeUnit.MICROSECONDS.sleep(10);
     }
     while ((millis -= spinMillis) >= 0);
 
@@ -216,7 +220,8 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
         return t;
       }
 
-      Thread.sleep(spinMillis);
+      //Thread.sleep(spinMillis);
+      TimeUnit.MICROSECONDS.sleep(10);
     }
     while (true);
   }
@@ -225,7 +230,7 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
   @SuppressWarnings("SleepWhileInLoop")
   public T poll(long timeout, TimeUnit unit) throws InterruptedException
   {
-    long millis = unit.toMillis(timeout);
+    long millis = unit.toMillis(timeout) * 1000;
     do {
       if (head > tail) {
         int pos = (int)(tail & buffermask);
@@ -235,7 +240,8 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
         return t;
       }
 
-      Thread.sleep(spinMillis);
+      //Thread.sleep(spinMillis);
+      TimeUnit.MICROSECONDS.sleep(10);
     }
     while ((millis -= spinMillis) >= 0);
 
