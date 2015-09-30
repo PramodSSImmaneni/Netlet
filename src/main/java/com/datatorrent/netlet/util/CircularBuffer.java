@@ -15,15 +15,15 @@
  */
 package com.datatorrent.netlet.util;
 
-import static java.lang.Thread.sleep;
-
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 
-import org.jctools.queues.MpmcArrayQueue;
+import org.jctools.queues.SpscArrayQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static java.lang.Thread.sleep;
 
 /**
  * Provides a premium implementation of circular buffer<p>
@@ -42,7 +42,7 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
   protected volatile long tail;
   protected volatile long head;
 
-  private MpmcArrayQueue<T> queue;
+  private SpscArrayQueue<T> queue;
   private int n;
 
   /**
@@ -68,7 +68,7 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
     */
 
     this.n = n;
-    queue = new MpmcArrayQueue<T>(n);
+    queue = new SpscArrayQueue<T>(n);
 
     spinMillis = spin;
   }
@@ -401,13 +401,9 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
     return queue.isEmpty();
   }
 
+  /*
   private class FrozenIterator implements Iterator<T>, Iterable<T>, Cloneable
   {
-    /*
-    private final long frozenHead;
-    private final long frozenTail;
-    private long tail;
-    */
 
     private int size;
     private int numPolled;
@@ -419,14 +415,12 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
       numPolled = 0;
     }
 
-    /*
     FrozenIterator(long frozenHead, long frozenTail)
     {
       this.frozenHead = frozenHead;
       this.frozenTail = frozenTail;
       this.tail = frozenTail;
     }
-    */
 
     @Override
     public boolean hasNext()
@@ -467,6 +461,7 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
   {
     return new FrozenIterator();
   }
+  */
 
   @Override
   public Iterator<T> iterator()
@@ -476,7 +471,8 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
       @Override
       public boolean hasNext()
       {
-        return head > tail;
+        //return head > tail;
+        return !queue.isEmpty();
       }
 
       @Override
