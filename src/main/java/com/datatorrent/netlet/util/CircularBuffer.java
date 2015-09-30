@@ -17,9 +17,11 @@ package com.datatorrent.netlet.util;
 
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.NoSuchElementException;
 import java.util.concurrent.TimeUnit;
 
 import org.jctools.queues.SpscArrayQueue;
+import org.jctools.util.Pow2;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,7 +45,7 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
   protected volatile long head;
 
   private SpscArrayQueue<T> queue;
-  private int n;
+  private int capacity;
 
   /**
    *
@@ -67,7 +69,7 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
     buffermask = i - 1;
     */
 
-    this.n = n;
+    capacity = Pow2.roundToPowerOfTwo(n);
     queue = new SpscArrayQueue<T>(n);
 
     spinMillis = spin;
@@ -123,7 +125,11 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
 
     throw new IllegalStateException("Collection is empty");
     */
-    return queue.remove();
+    try {
+      return queue.remove();
+    } catch (NoSuchElementException e) {
+      throw new IllegalStateException("Collection is empty", e);
+    }
   }
 
   @Override
@@ -161,7 +167,7 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
     /*
     return buffermask + 1;
     */
-    return n;
+    return capacity;
   }
 
   @Override
@@ -184,12 +190,13 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
     return size;
   }
 
+  /*
   @Override
   public String toString()
   {
-    //return "head=" + head + ", tail=" + tail + ", capacity=" + (buffermask + 1);
-    return queue.toString();
+    return "head=" + head + ", tail=" + tail + ", capacity=" + (buffermask + 1);
   }
+  */
 
   @Override
   public boolean offer(T e)
@@ -307,7 +314,7 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
   public int remainingCapacity()
   {
     //return buffermask + 1 - (int)(head - tail);
-    return n - queue.size();
+    return capacity - queue.size();
   }
 
   @Override
@@ -383,13 +390,10 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
     if (head > tail) {
       return buffer[(int)(tail & buffermask)];
     }
-    */
-    T t;
-    if ((t = queue.peek()) != null) {
-      return t;
-    }
 
     throw new IllegalStateException("Collection is empty");
+    */
+    return queue.element();
   }
 
   @Override
@@ -585,7 +589,7 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
   public CircularBuffer<T> getWhitehole(final String exceptionMessage)
   {
     //CircularBuffer<T> cb = new CircularBuffer<T>(buffer, buffermask, spinMillis)
-    CircularBuffer<T> cb = new CircularBuffer<T>(n, spinMillis)
+    CircularBuffer<T> cb = new CircularBuffer<T>(capacity, spinMillis)
     {
       @Override
       public boolean add(T e)
