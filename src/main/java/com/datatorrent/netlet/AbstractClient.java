@@ -195,9 +195,8 @@ public abstract class AbstractClient implements ClientListener
     /*
      * at first when we enter this function, our buffer is in fill mode.
      */
-    int remaining;
-    boolean sendLeft = false;
-    if ((sendLeft = !sendBuffer4Polls.isEmpty()) && (remaining = writeBuffer.remaining()) > 0) {
+    int remaining, size;
+    if ((size = sendBuffer4Polls.size()) > 0 && (remaining = writeBuffer.remaining()) > 0) {
       do {
         Slice f = sendBuffer4Polls.peekUnsafe();
         if (remaining <= f.length) {
@@ -212,7 +211,7 @@ public abstract class AbstractClient implements ClientListener
           freeBuffer.offer(sendBuffer4Polls.pollUnsafe());
         }
       }
-      while ((sendLeft = !sendBuffer4Polls.isEmpty()));
+      while (--size > 0);
     }
 
     /*
@@ -230,7 +229,7 @@ public abstract class AbstractClient implements ClientListener
         writeBuffer.compact();
         return;
       }
-      else if (sendLeft) {
+      else if (size > 0) {
         /*
          * switch back to the write mode.
          */
@@ -251,7 +250,7 @@ public abstract class AbstractClient implements ClientListener
             freeBuffer.offer(sendBuffer4Polls.pollUnsafe());
           }
         }
-        while ((sendLeft = !sendBuffer4Polls.isEmpty()));
+        while (--size > 0);
 
         /*
          * switch to the read mode.
@@ -290,7 +289,8 @@ public abstract class AbstractClient implements ClientListener
     Slice f;
     if (freeBuffer.isEmpty()) {
       f = new Slice(array, offset, len);
-    } else {
+    }
+    else {
       f = freeBuffer.pollUnsafe();
       f.buffer = array;
       f.offset = offset;
