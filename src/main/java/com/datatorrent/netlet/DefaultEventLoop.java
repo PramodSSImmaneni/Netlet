@@ -17,9 +17,12 @@ package com.datatorrent.netlet;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.StandardSocketOptions;
 import java.nio.channels.*;
 import java.nio.channels.spi.AbstractSelectableChannel;
-import java.util.*;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -369,8 +372,7 @@ public class DefaultEventLoop implements Runnable, EventLoop
       {
         try {
           l.registered(c.register(selector, ops, l));
-        }
-        catch (ClosedChannelException cce) {
+        } catch (ClosedChannelException cce) {
           l.handleException(cce, DefaultEventLoop.this);
         }
       }
@@ -419,7 +421,7 @@ public class DefaultEventLoop implements Runnable, EventLoop
   //@Override
   public void register(SocketChannel channel, int ops, Listener l)
   {
-    register((AbstractSelectableChannel)channel, ops, l);
+    register((AbstractSelectableChannel) channel, ops, l);
   }
 
   @Override
@@ -434,6 +436,8 @@ public class DefaultEventLoop implements Runnable, EventLoop
         try {
           channel = SocketChannel.open();
           channel.configureBlocking(false);
+          channel.setOption(StandardSocketOptions.TCP_NODELAY, true);
+          channel.setOption(StandardSocketOptions.SO_SNDBUF, 65535);
           if (channel.connect(address)) {
             l.connected();
             register(channel, SelectionKey.OP_READ, l);
