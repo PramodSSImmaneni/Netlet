@@ -17,7 +17,6 @@ package com.datatorrent.netlet;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.StandardSocketOptions;
 import java.nio.channels.*;
 import java.nio.channels.spi.AbstractSelectableChannel;
 import java.util.Collection;
@@ -436,8 +435,12 @@ public class DefaultEventLoop implements Runnable, EventLoop
         try {
           channel = SocketChannel.open();
           channel.configureBlocking(false);
+          channel.socket().setTcpNoDelay(true);
+          channel.socket().setSendBufferSize(65535);
+          /*
           channel.setOption(StandardSocketOptions.TCP_NODELAY, true);
           channel.setOption(StandardSocketOptions.SO_SNDBUF, 65535);
+          */
           if (channel.connect(address)) {
             l.connected();
             register(channel, SelectionKey.OP_READ, l);
