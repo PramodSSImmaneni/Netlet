@@ -76,5 +76,9 @@ public class TestServer
     }
   }
 
+  public static void main(String[] args) throws IOException, InterruptedException
+  {
+    new TestServer().execute();
+  }
 
 }
