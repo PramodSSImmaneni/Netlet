@@ -195,11 +195,11 @@ public abstract class AbstractClient implements ClientListener
     /*
      * at first when we enter this function, our buffer is in fill mode.
      */
-    int remaining, size;
-    if ((remaining = writeBuffer.remaining()) > 0) {
+    int remaining;
+    boolean sendLeft = false;
+    if ((sendLeft = !sendBuffer4Polls.isEmpty()) && (remaining = writeBuffer.remaining()) > 0) {
       do {
         Slice f = sendBuffer4Polls.peekUnsafe();
-        if (f == null) break;
         if (remaining <= f.length) {
           writeBuffer.put(f.buffer, f.offset, remaining);
           f.offset += remaining;
@@ -212,7 +212,7 @@ public abstract class AbstractClient implements ClientListener
           freeBuffer.offer(sendBuffer4Polls.pollUnsafe());
         }
       }
-      while (true);
+      while ((sendLeft = !sendBuffer4Polls.isEmpty()));
     }
 
     /*
@@ -230,7 +230,7 @@ public abstract class AbstractClient implements ClientListener
         writeBuffer.compact();
         return;
       }
-      else if (!sendBuffer4Polls.isEmpty()) {
+      else if (sendLeft) {
         /*
          * switch back to the write mode.
          */
@@ -239,7 +239,6 @@ public abstract class AbstractClient implements ClientListener
         remaining = writeBuffer.capacity();
         do {
           Slice f = sendBuffer4Polls.peekUnsafe();
-          if (f == null) break;
           if (remaining <= f.length) {
             writeBuffer.put(f.buffer, f.offset, remaining);
             f.offset += remaining;
@@ -252,7 +251,7 @@ public abstract class AbstractClient implements ClientListener
             freeBuffer.offer(sendBuffer4Polls.pollUnsafe());
           }
         }
-        while (true);
+        while ((sendLeft = !sendBuffer4Polls.isEmpty()));
 
         /*
          * switch to the read mode.
@@ -291,8 +290,7 @@ public abstract class AbstractClient implements ClientListener
     Slice f;
     if (freeBuffer.isEmpty()) {
       f = new Slice(array, offset, len);
-    }
-    else {
+    } else {
       f = freeBuffer.pollUnsafe();
       f.buffer = array;
       f.offset = offset;
