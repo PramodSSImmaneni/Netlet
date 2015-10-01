@@ -20,7 +20,7 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.concurrent.TimeUnit;
 
-import org.jctools.queues.MpscArrayQueue;
+import org.jctools.queues.SpscArrayQueue;
 import org.jctools.util.Pow2;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,8 +44,8 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
   protected volatile long tail;
   protected volatile long head;
 
-  //private SpscArrayQueue<T> queue;
-  private MpscArrayQueue<T> queue;
+  private SpscArrayQueue<T> queue;
+  //private MpscArrayQueue<T> queue;
   private int capacity;
 
   /**
@@ -71,8 +71,8 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
     */
 
     capacity = Pow2.roundToPowerOfTwo(n);
-    //queue = new SpscArrayQueue<T>(n);
-    queue = new MpscArrayQueue<T>(n);
+    queue = new SpscArrayQueue<T>(n);
+    //queue = new MpscArrayQueue<T>(n);
 
     spinMillis = spin;
   }
@@ -404,7 +404,7 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
     /*
     return head == tail;
     */
-    return queue.isEmpty();
+    return (queue.peek() == null);
   }
 
   /*
@@ -478,7 +478,7 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
       public boolean hasNext()
       {
         //return head > tail;
-        return !queue.isEmpty();
+        return (queue.peek() != null);
       }
 
       @Override

@@ -20,13 +20,13 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 
-import org.jctools.queues.SpscArrayQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.datatorrent.netlet.Listener.ClientListener;
-import com.datatorrent.netlet.util.CircularBuffer;
 import com.datatorrent.netlet.util.Slice;
+import com.datatorrent.netlet.Listener.ClientListener;
+import com.datatorrent.netlet.NetletThrowable.NetletRuntimeException;
+import com.datatorrent.netlet.util.CircularBuffer;
 
 /**
  * <p>
@@ -40,9 +40,9 @@ public abstract class AbstractClient implements ClientListener
   public static final int MAX_SENDBUFFER_SIZE;
 
   protected final CircularBuffer<NetletThrowable> throwables;
-  protected final SpscArrayQueue<SpscArrayQueue<Slice>> bufferOfBuffers;
-  protected final SpscArrayQueue<Slice> freeBuffer;
-  protected SpscArrayQueue<Slice> sendBuffer4Offers, sendBuffer4Polls;
+  protected final CircularBuffer<CircularBuffer<Slice>> bufferOfBuffers;
+  protected final CircularBuffer<Slice> freeBuffer;
+  protected CircularBuffer<Slice> sendBuffer4Offers, sendBuffer4Polls;
   protected final ByteBuffer writeBuffer;
   protected boolean write = true;
   protected SelectionKey key;
@@ -76,7 +76,7 @@ public abstract class AbstractClient implements ClientListener
       i++;
     }
     while (n != MAX_SENDBUFFER_SIZE);
-    bufferOfBuffers = new SpscArrayQueue<SpscArrayQueue<Slice>>(i);
+    bufferOfBuffers = new CircularBuffer<CircularBuffer<Slice>>(i);
 
     this.throwables = new CircularBuffer<NetletThrowable>(THROWABLES_COLLECTION_SIZE);
     this.writeBuffer = writeBuffer;
@@ -86,8 +86,8 @@ public abstract class AbstractClient implements ClientListener
     else if (sendBufferSize % 1024 > 0) {
       sendBufferSize += 1024 - (sendBufferSize % 1024);
     }
-    sendBuffer4Polls = sendBuffer4Offers = new SpscArrayQueue<Slice>(sendBufferSize);
-    freeBuffer = new SpscArrayQueue<Slice>(sendBufferSize);
+    sendBuffer4Polls = sendBuffer4Offers = new CircularBuffer<Slice>(sendBufferSize, 10);
+    freeBuffer = new CircularBuffer<Slice>(sendBufferSize, 10);
   }
 
   @Override
@@ -198,7 +198,7 @@ public abstract class AbstractClient implements ClientListener
     int remaining, size;
     if ((size = sendBuffer4Polls.size()) > 0 && (remaining = writeBuffer.remaining()) > 0) {
       do {
-        Slice f = sendBuffer4Polls.peek();
+        Slice f = sendBuffer4Polls.peekUnsafe();
         if (remaining <= f.length) {
           writeBuffer.put(f.buffer, f.offset, remaining);
           f.offset += remaining;
@@ -208,7 +208,7 @@ public abstract class AbstractClient implements ClientListener
         else {
           writeBuffer.put(f.buffer, f.offset, f.length);
           remaining -= f.length;
-          freeBuffer.offer(sendBuffer4Polls.poll());
+          freeBuffer.offer(sendBuffer4Polls.pollUnsafe());
         }
       }
       while (--size > 0);
@@ -237,7 +237,7 @@ public abstract class AbstractClient implements ClientListener
 
         remaining = writeBuffer.capacity();
         do {
-          Slice f = sendBuffer4Polls.peek();
+          Slice f = sendBuffer4Polls.peekUnsafe();
           if (remaining <= f.length) {
             writeBuffer.put(f.buffer, f.offset, remaining);
             f.offset += remaining;
@@ -247,7 +247,7 @@ public abstract class AbstractClient implements ClientListener
           else {
             writeBuffer.put(f.buffer, f.offset, f.length);
             remaining -= f.length;
-            freeBuffer.offer(sendBuffer4Polls.poll());
+            freeBuffer.offer(sendBuffer4Polls.pollUnsafe());
           }
         }
         while (--size > 0);
@@ -273,7 +273,7 @@ public abstract class AbstractClient implements ClientListener
           sendBuffer4Polls = sendBuffer4Offers;
         }
         else {
-          sendBuffer4Polls = bufferOfBuffers.poll();
+          sendBuffer4Polls = bufferOfBuffers.pollUnsafe();
         }
       }
     }
@@ -291,7 +291,7 @@ public abstract class AbstractClient implements ClientListener
       f = new Slice(array, offset, len);
     }
     else {
-      f = freeBuffer.poll();
+      f = freeBuffer.pollUnsafe();
       f.buffer = array;
       f.offset = offset;
       f.length = len;
@@ -313,13 +313,13 @@ public abstract class AbstractClient implements ClientListener
       NetletThrowable.Util.throwRuntime(throwables.pollUnsafe());
     }
 
-    if (8192 != MAX_SENDBUFFER_SIZE) {
+    if (sendBuffer4Offers.capacity() != MAX_SENDBUFFER_SIZE) {
       synchronized (bufferOfBuffers) {
         if (sendBuffer4Offers != sendBuffer4Polls) {
           bufferOfBuffers.add(sendBuffer4Offers);
         }
 
-        sendBuffer4Offers = new SpscArrayQueue<Slice>(8192 << 1);
+        sendBuffer4Offers = new CircularBuffer<Slice>(sendBuffer4Offers.capacity() << 1);
         sendBuffer4Offers.add(f);
         if (!write) {
           key.interestOps(key.interestOps() | SelectionKey.OP_WRITE);
@@ -348,10 +348,9 @@ public abstract class AbstractClient implements ClientListener
   @Override
   public void unregistered(SelectionKey key)
   {
-          /*
     synchronized (bufferOfBuffers) {
-      final SpscArrayQueue<Slice> SEND_BUFFER = sendBuffer4Offers;
-      sendBuffer4Offers = new SpscArrayQueue<Slice>(0)
+      final CircularBuffer<Slice> SEND_BUFFER = sendBuffer4Offers;
+      sendBuffer4Offers = new CircularBuffer<Slice>(0)
       {
         @Override
         public boolean isEmpty()
@@ -372,20 +371,19 @@ public abstract class AbstractClient implements ClientListener
         }
 
         @Override
-        public Slice poll()
+        public Slice pollUnsafe()
         {
-          return SEND_BUFFER.poll();
+          return SEND_BUFFER.pollUnsafe();
         }
 
         @Override
-        public Slice peek()
+        public Slice peekUnsafe()
         {
-          return SEND_BUFFER.peek();
+          return SEND_BUFFER.peekUnsafe();
         }
 
       };
     }
-    */
   }
 
   private static final Logger logger = LoggerFactory.getLogger(AbstractClient.class);
