@@ -192,7 +192,7 @@ public abstract class AbstractLengthPrependerClient extends AbstractClient
 
   public boolean write(byte[] message1, byte[] message2)
   {
-    if (sendBuffer4Offers.remainingCapacity() < 3 && sendBuffer4Offers.capacity() == MAX_SENDBUFFER_SIZE) {
+    if ((8192-sendBuffer4Offers.size()) < 3 && 8192 == MAX_SENDBUFFER_SIZE) {
       return false;
     }
 
@@ -223,7 +223,7 @@ public abstract class AbstractLengthPrependerClient extends AbstractClient
 
   public boolean write(byte[] message, int offset, int size)
   {
-    if (sendBuffer4Offers.remainingCapacity() < 2 && sendBuffer4Offers.capacity() == MAX_SENDBUFFER_SIZE) {
+    if ((8192-sendBuffer4Offers.size()) < 2 && 8192 == MAX_SENDBUFFER_SIZE) {
       return false;
     }
 
