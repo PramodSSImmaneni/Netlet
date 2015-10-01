@@ -26,6 +26,9 @@ public class TestClient
         Thread.sleep(0);
       }
     }
+    while (!client.isDone()) {
+      Thread.sleep(1);
+    }
     eventLoop.disconnect(client);
     long duration = System.currentTimeMillis() - startTime;
     eventLoop.stop();
@@ -45,6 +48,10 @@ public class TestClient
     @Override
     public void read(int len)
     {
+    }
+
+    public boolean isDone() {
+      return sendBuffer4Polls.isEmpty() && (writeBuffer.position() == 0);
     }
   }
 
