@@ -39,4 +39,9 @@ public class JavaServer
     }
   }
 
+  public static void main(String[] args) throws IOException
+  {
+    new JavaServer().execute();
+  }
+
 }
