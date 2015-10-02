@@ -18,7 +18,7 @@ public class TestServer
 {
   public void execute() throws IOException, InterruptedException
   {
-    DefaultEventLoop eventLoop = DefaultEventLoop.createEventLoop("Client");
+    DefaultEventLoop eventLoop = DefaultEventLoop.createEventLoop("Server");
     Thread eventTh = eventLoop.start();
     eventLoop.start("0.0.0.0", 9045, new TestServerListener());
     eventTh.join();
@@ -56,7 +56,7 @@ public class TestServer
   {
     private ByteBuffer buffer = ByteBuffer.allocateDirect(8192);
     private long nread;
-    private int numBatch = 1;
+    private long numBatch = 1;
     private long startTime = System.currentTimeMillis();
 
     @Override
@@ -69,10 +69,11 @@ public class TestServer
     public void read(int len)
     {
       nread += len;
-      if (nread >= (numBatch * 1000000)) {
+      if (nread >= (numBatch * 1000000000)) {
         System.out.println("Number " + nread + " duration " + (System.currentTimeMillis() - startTime));
         ++numBatch;
       }
+      buffer.flip();
     }
   }
 
