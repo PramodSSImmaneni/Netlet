@@ -21,7 +21,7 @@ public class TestClient
     TestListener client = new TestListener();
     eventLoop.connect(new InetSocketAddress("node16.morado.com", 9045), client);
     long startTime = System.currentTimeMillis();
-    for (int i = 0; i < 8000000; ++i) {
+    for (int i = 0; i < 6000000; ++i) {
       while(!client.send(b)) {
         Thread.sleep(1);
       }
@@ -37,7 +37,7 @@ public class TestClient
 
   private static class TestListener extends AbstractClient
   {
-    private ByteBuffer buffer = ByteBuffer.allocateDirect(8192);
+    private ByteBuffer buffer = ByteBuffer.allocateDirect(1400);
 
     @Override
     public ByteBuffer buffer()
