@@ -19,16 +19,14 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
-import java.util.Queue;
 
-import org.jctools.queues.SpscArrayQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.datatorrent.netlet.util.Slice;
 import com.datatorrent.netlet.Listener.ClientListener;
 import com.datatorrent.netlet.NetletThrowable.NetletRuntimeException;
 import com.datatorrent.netlet.util.CircularBuffer;
-import com.datatorrent.netlet.util.Slice;
 
 /**
  * <p>
@@ -42,9 +40,9 @@ public abstract class AbstractClient implements ClientListener
   public static final int MAX_SENDBUFFER_SIZE;
 
   protected final CircularBuffer<NetletThrowable> throwables;
-  protected final CircularBuffer<Queue<Slice>> bufferOfBuffers;
+  protected final CircularBuffer<CircularBuffer<Slice>> bufferOfBuffers;
   protected final CircularBuffer<Slice> freeBuffer;
-  protected Queue<Slice> sendBuffer4Offers, sendBuffer4Polls;
+  protected CircularBuffer<Slice> sendBuffer4Offers, sendBuffer4Polls;
   protected final ByteBuffer writeBuffer;
   protected boolean write = true;
   protected SelectionKey key;
@@ -78,7 +76,7 @@ public abstract class AbstractClient implements ClientListener
       i++;
     }
     while (n != MAX_SENDBUFFER_SIZE);
-    bufferOfBuffers = new CircularBuffer<Queue<Slice>>(i);
+    bufferOfBuffers = new CircularBuffer<CircularBuffer<Slice>>(i);
 
     this.throwables = new CircularBuffer<NetletThrowable>(THROWABLES_COLLECTION_SIZE);
     this.writeBuffer = writeBuffer;
@@ -88,7 +86,7 @@ public abstract class AbstractClient implements ClientListener
     else if (sendBufferSize % 1024 > 0) {
       sendBufferSize += 1024 - (sendBufferSize % 1024);
     }
-    sendBuffer4Polls = sendBuffer4Offers = new SpscArrayQueue<Slice>(1000000);
+    sendBuffer4Polls = sendBuffer4Offers = new CircularBuffer<Slice>(sendBufferSize, 10);
     freeBuffer = new CircularBuffer<Slice>(sendBufferSize, 10);
   }
 
@@ -198,10 +196,9 @@ public abstract class AbstractClient implements ClientListener
      * at first when we enter this function, our buffer is in fill mode.
      */
     int remaining, size;
-    Slice f = sendBuffer4Polls.peek();
-    if ((f != null) && (remaining = writeBuffer.remaining()) > 0) {
+    if ((size = sendBuffer4Polls.size()) > 0 && (remaining = writeBuffer.remaining()) > 0) {
       do {
-        //Slice f = sendBuffer4Polls.peek();
+        Slice f = sendBuffer4Polls.peekUnsafe();
         if (remaining <= f.length) {
           writeBuffer.put(f.buffer, f.offset, remaining);
           f.offset += remaining;
@@ -211,11 +208,10 @@ public abstract class AbstractClient implements ClientListener
         else {
           writeBuffer.put(f.buffer, f.offset, f.length);
           remaining -= f.length;
-          freeBuffer.offer(sendBuffer4Polls.poll());
+          freeBuffer.offer(sendBuffer4Polls.pollUnsafe());
         }
-        f = sendBuffer4Polls.peek();
       }
-      while (f != null);
+      while (--size > 0);
     }
 
     /*
@@ -233,7 +229,7 @@ public abstract class AbstractClient implements ClientListener
         writeBuffer.compact();
         return;
       }
-      else if (f != null) {
+      else if (size > 0) {
         /*
          * switch back to the write mode.
          */
@@ -241,7 +237,7 @@ public abstract class AbstractClient implements ClientListener
 
         remaining = writeBuffer.capacity();
         do {
-          //Slice f = sendBuffer4Polls.peekUnsafe();
+          Slice f = sendBuffer4Polls.peekUnsafe();
           if (remaining <= f.length) {
             writeBuffer.put(f.buffer, f.offset, remaining);
             f.offset += remaining;
@@ -251,11 +247,10 @@ public abstract class AbstractClient implements ClientListener
           else {
             writeBuffer.put(f.buffer, f.offset, f.length);
             remaining -= f.length;
-            freeBuffer.offer(sendBuffer4Polls.poll());
+            freeBuffer.offer(sendBuffer4Polls.pollUnsafe());
           }
-          f = sendBuffer4Polls.peek();
         }
-        while (f != null);
+        while (--size > 0);
 
         /*
          * switch to the read mode.
@@ -318,13 +313,13 @@ public abstract class AbstractClient implements ClientListener
       NetletThrowable.Util.throwRuntime(throwables.pollUnsafe());
     }
 
-    if (1000000 != MAX_SENDBUFFER_SIZE) {
+    if (sendBuffer4Offers.capacity() != MAX_SENDBUFFER_SIZE) {
       synchronized (bufferOfBuffers) {
         if (sendBuffer4Offers != sendBuffer4Polls) {
           bufferOfBuffers.add(sendBuffer4Offers);
         }
 
-        sendBuffer4Offers = new SpscArrayQueue<Slice>(1000000 << 1);
+        sendBuffer4Offers = new CircularBuffer<Slice>(sendBuffer4Offers.capacity() << 1);
         sendBuffer4Offers.add(f);
         if (!write) {
           key.interestOps(key.interestOps() | SelectionKey.OP_WRITE);
@@ -354,7 +349,7 @@ public abstract class AbstractClient implements ClientListener
   public void unregistered(SelectionKey key)
   {
     synchronized (bufferOfBuffers) {
-      final Queue<Slice> SEND_BUFFER = sendBuffer4Offers;
+      final CircularBuffer<Slice> SEND_BUFFER = sendBuffer4Offers;
       sendBuffer4Offers = new CircularBuffer<Slice>(0)
       {
         @Override
@@ -378,13 +373,13 @@ public abstract class AbstractClient implements ClientListener
         @Override
         public Slice pollUnsafe()
         {
-          return SEND_BUFFER.poll();
+          return SEND_BUFFER.pollUnsafe();
         }
 
         @Override
         public Slice peekUnsafe()
         {
-          return SEND_BUFFER.peek();
+          return SEND_BUFFER.peekUnsafe();
         }
 
       };

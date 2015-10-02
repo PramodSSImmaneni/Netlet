@@ -15,15 +15,15 @@ public class TestClient
 
   public void execute() throws IOException, InterruptedException
   {
-    byte[] b = new byte[8192];
+    byte[] b = new byte[1400];
     DefaultEventLoop eventLoop = DefaultEventLoop.createEventLoop("Client");
     eventLoop.start();
     TestListener client = new TestListener();
     eventLoop.connect(new InetSocketAddress("node16.morado.com", 9045), client);
     long startTime = System.currentTimeMillis();
-    for (int i = 0; i < 1000000; ++i) {
+    for (int i = 0; i < 8000000; ++i) {
       while(!client.send(b)) {
-        Thread.sleep(0);
+        Thread.sleep(1);
       }
     }
     while (!client.isDone()) {

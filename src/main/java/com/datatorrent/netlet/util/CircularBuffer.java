@@ -15,17 +15,14 @@
  */
 package com.datatorrent.netlet.util;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
-import java.util.NoSuchElementException;
 import java.util.concurrent.TimeUnit;
+import static java.lang.Thread.sleep;
 
-import org.jctools.queues.MpscArrayQueue;
-import org.jctools.util.Pow2;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static java.lang.Thread.sleep;
 
 /**
  * Provides a premium implementation of circular buffer<p>
@@ -36,17 +33,11 @@ import static java.lang.Thread.sleep;
  */
 public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
 {
-  /*
   private final T[] buffer;
   private final int buffermask;
-  */
   private final int spinMillis;
   protected volatile long tail;
   protected volatile long head;
-
-  //private SpscArrayQueue<T> queue;
-  private MpscArrayQueue<T> queue;
-  private int capacity;
 
   /**
    *
@@ -60,7 +51,6 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
   @SuppressWarnings("unchecked")
   public CircularBuffer(int n, int spin)
   {
-    /*
     int i = 1;
     while (i < n) {
       i <<= 1;
@@ -68,23 +58,16 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
 
     buffer = (T[])new Object[i];
     buffermask = i - 1;
-    */
-
-    capacity = Pow2.roundToPowerOfTwo(n);
-    //queue = new SpscArrayQueue<T>(n);
-    queue = new MpscArrayQueue<T>(n);
 
     spinMillis = spin;
   }
 
-  /*
   private CircularBuffer(T[] buffer, int buffermask, int spinMillis)
   {
     this.buffer = buffer;
     this.buffermask = buffermask;
     this.spinMillis = spinMillis;
   }
-  */
 
   /**
    *
@@ -102,21 +85,18 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
   @Override
   public boolean add(T e)
   {
-    /*
     if (head - tail <= buffermask) {
       buffer[(int)(head & buffermask)] = e;
       head++;
       return true;
     }
+
     throw new IllegalStateException("Collection is full");
-    */
-    return queue.add(e);
   }
 
   @Override
   public T remove()
   {
-    /*
     if (head > tail) {
       int pos = (int)(tail & buffermask);
       T t = buffer[pos];
@@ -126,34 +106,22 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
     }
 
     throw new IllegalStateException("Collection is empty");
-    */
-    try {
-      return queue.remove();
-    } catch (NoSuchElementException e) {
-      throw new IllegalStateException("Collection is empty", e);
-    }
   }
 
   @Override
   public T peek()
   {
-    /*
     if (head > tail) {
       return buffer[(int)(tail & buffermask)];
     }
 
     return null;
-    */
-    return queue.peek();
   }
 
   @Override
   public int size()
   {
-    /*
     return (int)(head - tail);
-    */
-    return queue.size();
   }
 
   /**
@@ -166,10 +134,7 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
    */
   public int capacity()
   {
-    /*
     return buffermask + 1;
-    */
-    return capacity;
   }
 
   @Override
@@ -177,33 +142,23 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
   {
     int size = size();
 
-    /*
-
     while (head > tail) {
       container.add(buffer[(int)(tail & buffermask)]);
       tail++;
-    }
-    */
-    T t;
-    while ((t = queue.poll()) != null) {
-      container.add(t);
     }
 
     return size;
   }
 
-  /*
   @Override
   public String toString()
   {
     return "head=" + head + ", tail=" + tail + ", capacity=" + (buffermask + 1);
   }
-  */
 
   @Override
   public boolean offer(T e)
   {
-    /*
     if (head - tail <= buffermask) {
       buffer[(int)(head & buffermask)] = e;
       head++;
@@ -211,8 +166,6 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
     }
 
     return false;
-    */
-    return queue.offer(e);
   }
 
   @Override
@@ -220,15 +173,9 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
   public void put(T e) throws InterruptedException
   {
     do {
-      /*
       if (head - tail < buffermask) {
         buffer[(int)(head & buffermask)] = e;
         head++;
-        return;
-      }
-      */
-
-      if (queue.offer(e)) {
         return;
       }
 
@@ -243,14 +190,9 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
   {
     long millis = unit.toMillis(timeout);
     do {
-      /*
       if (head - tail < buffermask) {
         buffer[(int)(head & buffermask)] = e;
         head++;
-        return true;
-      }
-      */
-      if (queue.offer(e)) {
         return true;
       }
 
@@ -265,18 +207,12 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
   @SuppressWarnings("SleepWhileInLoop")
   public T take() throws InterruptedException
   {
-    T t;
     do {
-      /*
       if (head > tail) {
         int pos = (int)(tail & buffermask);
         T t = buffer[pos];
         buffer[pos] = null;
         tail++;
-        return t;
-      }
-      */
-      if ((t = queue.poll()) != null) {
         return t;
       }
 
@@ -289,19 +225,13 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
   @SuppressWarnings("SleepWhileInLoop")
   public T poll(long timeout, TimeUnit unit) throws InterruptedException
   {
-    T t;
     long millis = unit.toMillis(timeout);
     do {
-      /*
       if (head > tail) {
         int pos = (int)(tail & buffermask);
         T t = buffer[pos];
         buffer[pos] = null;
         tail++;
-        return t;
-      }
-      */
-      if ((t = queue.poll()) != null) {
         return t;
       }
 
@@ -315,8 +245,7 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
   @Override
   public int remainingCapacity()
   {
-    //return buffermask + 1 - (int)(head - tail);
-    return capacity - queue.size();
+    return buffermask + 1 - (int)(head - tail);
   }
 
   @Override
@@ -335,21 +264,12 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
   public int drainTo(final Collection<? super T> collection, final int maxElements)
   {
     int i = -1;
-    /*
     int pos;
     while (i++ < maxElements && head > tail) {
       pos = (int)(tail & buffermask);
       collection.add(buffer[pos]);
       buffer[pos] = null;
       tail++;
-    }
-    */
-    T t;
-    while ((++i < maxElements) && (queue.size() > 0)) {
-      t = queue.poll();
-      if (t != null) {
-        collection.add(t);
-      }
     }
 
     return i;
@@ -358,7 +278,6 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
   @Override
   public T poll()
   {
-    /*
     if (head > tail) {
       int pos = (int)(tail & buffermask);
       T t = buffer[pos];
@@ -368,57 +287,43 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
     }
 
     return null;
-    */
-    return queue.poll();
   }
 
   @Override
   public T pollUnsafe()
   {
-    /*
     int pos = (int)(tail & buffermask);
     T t = buffer[pos];
     buffer[pos] = null;
     tail++;
     return t;
-    */
-    return queue.poll();
   }
 
   @Override
   public T element()
   {
-    /*
     if (head > tail) {
       return buffer[(int)(tail & buffermask)];
     }
 
     throw new IllegalStateException("Collection is empty");
-    */
-    return queue.element();
   }
 
   @Override
   public boolean isEmpty()
   {
-    /*
     return head == tail;
-    */
-    return (queue.peek() == null);
   }
 
-  /*
   private class FrozenIterator implements Iterator<T>, Iterable<T>, Cloneable
   {
-
-    private int size;
-    private int numPolled;
+    private final long frozenHead;
+    private final long frozenTail;
+    private long tail;
 
     FrozenIterator()
     {
-      //this(CircularBuffer.this.head, CircularBuffer.this.tail);
-      size = queue.size();
-      numPolled = 0;
+      this(CircularBuffer.this.head, CircularBuffer.this.tail);
     }
 
     FrozenIterator(long frozenHead, long frozenTail)
@@ -431,29 +336,25 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
     @Override
     public boolean hasNext()
     {
-      //return tail < frozenHead;
-      return (numPolled < size);
+      return tail < frozenHead;
     }
 
     @Override
     public T next()
     {
-      //return buffer[(int)(tail++ & buffermask)];
-      return queue.peek();
+      return buffer[(int)(tail++ & buffermask)];
     }
 
     @Override
     public void remove()
     {
-      //buffer[(int)((tail - 1) & buffermask)] = null;
-      queue.remove();
+      buffer[(int)((tail - 1) & buffermask)] = null;
     }
 
     @Override
     public Iterator<T> iterator()
     {
-      //return new FrozenIterator(frozenHead, frozenTail);
-      return new FrozenIterator();
+      return new FrozenIterator(frozenHead, frozenTail);
     }
 
   }
@@ -467,7 +368,6 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
   {
     return new FrozenIterator();
   }
-  */
 
   @Override
   public Iterator<T> iterator()
@@ -477,21 +377,17 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
       @Override
       public boolean hasNext()
       {
-        //return head > tail;
-        return (queue.peek() != null);
+        return head > tail;
       }
 
       @Override
       public T next()
       {
-        /*
         int pos = (int)(tail & buffermask);
         T t = buffer[pos];
         buffer[pos] = null;
         tail++;
         return t;
-        */
-        return queue.poll();
       }
 
       @Override
@@ -505,7 +401,6 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
   @Override
   public Object[] toArray()
   {
-    /*
     final int count = (int)(head - tail);
     Object[] array = new Object[count];
     int pos;
@@ -517,15 +412,12 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
     }
 
     return array;
-    */
-    return queue.toArray();
   }
 
   @Override
   @SuppressWarnings("unchecked")
   public <T> T[] toArray(T[] a)
   {
-    /*
     int count = (int)(head - tail);
     if (a.length < count) {
       a = (T[])new Object[count];
@@ -540,8 +432,6 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
     }
 
     return a;
-    */
-    return queue.toArray(a);
   }
 
   @Override
@@ -571,27 +461,20 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
   @Override
   public void clear()
   {
-    /*
     head = 0;
     tail = 0;
     Arrays.fill(buffer, null);
-    */
-    queue.clear();
   }
 
   @Override
   public T peekUnsafe()
   {
-    /*
     return buffer[(int)(tail & buffermask)];
-    */
-    return queue.peek();
   }
 
   public CircularBuffer<T> getWhitehole(final String exceptionMessage)
   {
-    //CircularBuffer<T> cb = new CircularBuffer<T>(buffer, buffermask, spinMillis)
-    CircularBuffer<T> cb = new CircularBuffer<T>(capacity, spinMillis)
+    CircularBuffer<T> cb = new CircularBuffer<T>(buffer, buffermask, spinMillis)
     {
       @Override
       public boolean add(T e)
@@ -635,12 +518,8 @@ public class CircularBuffer<T> implements UnsafeBlockingQueue<T>
       }
 
     };
-
-    /*
     cb.head = head;
     cb.tail = tail;
-    */
-    cb.queue = queue;
 
     return cb;
   }

@@ -27,7 +27,7 @@ public class JavaServer
           nread += rb;
           if (nread >= check) {
             System.out.println("Read data " + nread + " duration " + (System.currentTimeMillis() - startTime));
-            check <<= 1;
+            check += 1000000000;
           }
         }
       } finally {
