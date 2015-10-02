@@ -31,8 +31,8 @@ public class TestServer
     @Override
     public ClientListener getClientConnection(SocketChannel client, ServerSocketChannel server)
     {
-      //return new TestListener();
-      return new TestListenerDirect();
+      return new TestListener();
+      //return new TestListenerDirect();
     }
 
     @Override
@@ -86,7 +86,7 @@ public class TestServer
 
     private long nread;
     private long check = 1000000000;
-    private long startTime;
+    private long startTime = System.currentTimeMillis();
 
     @Override
     public void read() throws IOException
@@ -111,7 +111,6 @@ public class TestServer
     @Override
     public void connected()
     {
-      startTime = System.currentTimeMillis();
     }
 
     @Override

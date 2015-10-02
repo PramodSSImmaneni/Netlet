@@ -22,24 +22,22 @@ public class TestClient
     byte[] b = new byte[1400];
     DefaultEventLoop eventLoop = DefaultEventLoop.createEventLoop("Client");
     eventLoop.start();
-    //TestListener client = new TestListener();
-    TestListenerDirect client = new TestListenerDirect();
+    TestListener client = new TestListener();
+    //TestListenerDirect client = new TestListenerDirect();
     eventLoop.connect(new InetSocketAddress("node16.morado.com", 9045), client);
-    /*
     long startTime = System.currentTimeMillis();
     for (int i = 0; i < 6000000; ++i) {
       while(!client.send(b)) {
-        Thread.sleep(1);
+        Thread.sleep(0);
       }
     }
-    */
     while (!client.isDone()) {
       Thread.sleep(1);
     }
     eventLoop.disconnect(client);
-    //long duration = System.currentTimeMillis() - startTime;
+    long duration = System.currentTimeMillis() - startTime;
+    System.out.println("Duration " + duration);
     eventLoop.stop();
-    //System.out.println("Duration " + duration);
   }
 
   private static class TestListener extends AbstractClient
